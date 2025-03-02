@@ -30,7 +30,7 @@
  * 't->id' should be the pointer to the relevant 'struct pid' having reference
  * count.  Caller must put the returned task, unless it is NULL.
  */
-#define damon_get_task_struct(t) \
+#define damon_get_task_struct(t)                                               \
 	(get_pid_task((struct pid *)t->id, PIDTYPE_PID))
 
 /*
@@ -64,7 +64,8 @@ static struct mm_struct *damon_get_mm(struct damon_target *t)
  * Returns 0 on success, or negative error code otherwise.
  */
 static int damon_va_evenly_split_region(struct damon_target *t,
-		struct damon_region *r, unsigned int nr_pieces)
+					struct damon_region *r,
+					unsigned int nr_pieces)
 {
 	unsigned long sz_orig, sz_piece, orig_end;
 	struct damon_region *n = NULL, *next;
@@ -83,7 +84,7 @@ static int damon_va_evenly_split_region(struct damon_target *t,
 	r->ar.end = r->ar.start + sz_piece;
 	next = damon_next_region(r);
 	for (start = r->ar.end; start + sz_piece <= orig_end;
-			start += sz_piece) {
+	     start += sz_piece) {
 		n = damon_new_region(start, start + sz_piece);
 		if (!n)
 			return -ENOMEM;
@@ -126,9 +127,10 @@ static void swap_ranges(struct damon_addr_range *r1,
  * Returns 0 if success, or negative error code otherwise.
  */
 static int __damon_va_three_regions(struct vm_area_struct *vma,
-				       struct damon_addr_range regions[3])
+				    struct damon_addr_range regions[3])
 {
-	struct damon_addr_range gap = {0}, first_gap = {0}, second_gap = {0};
+	struct damon_addr_range gap = { 0 }, first_gap = { 0 },
+				second_gap = { 0 };
 	struct vm_area_struct *last_vma = NULL;
 	unsigned long start = 0;
 	struct rb_root rbroot;
@@ -142,8 +144,8 @@ static int __damon_va_three_regions(struct vm_area_struct *vma,
 
 		if (vma->rb_subtree_gap <= sz_range(&second_gap)) {
 			rbroot.rb_node = &vma->vm_rb;
-			vma = rb_entry(rb_last(&rbroot),
-					struct vm_area_struct, vm_rb);
+			vma = rb_entry(rb_last(&rbroot), struct vm_area_struct,
+				       vm_rb);
 			goto next;
 		}
 
@@ -154,7 +156,7 @@ static int __damon_va_three_regions(struct vm_area_struct *vma,
 			if (sz_range(&second_gap) > sz_range(&first_gap))
 				swap_ranges(&second_gap, &first_gap);
 		}
-next:
+	next:
 		last_vma = vma;
 	}
 
@@ -182,7 +184,7 @@ next:
  * Returns 0 on success, negative error code otherwise.
  */
 static int damon_va_three_regions(struct damon_target *t,
-				struct damon_addr_range regions[3])
+				  struct damon_addr_range regions[3])
 {
 	struct mm_struct *mm;
 	int rc;
@@ -242,7 +244,7 @@ static int damon_va_three_regions(struct damon_target *t,
  *   <stack>
  */
 static void __damon_va_init_regions(struct damon_ctx *ctx,
-				     struct damon_target *t)
+				    struct damon_target *t)
 {
 	struct damon_region *r;
 	struct damon_addr_range regions[3];
@@ -280,7 +282,8 @@ void damon_va_init(struct damon_ctx *ctx)
 {
 	struct damon_target *t;
 
-	damon_for_each_target(t, ctx) {
+	damon_for_each_target(t, ctx)
+	{
 		/* the user may set the target regions as they want */
 		if (!damon_nr_regions(t))
 			__damon_va_init_regions(ctx, t);
@@ -308,13 +311,14 @@ static bool damon_intersect(struct damon_region *r, struct damon_addr_range *re)
  * bregions	the three big regions of the target
  */
 static void damon_va_apply_three_regions(struct damon_target *t,
-		struct damon_addr_range bregions[3])
+					 struct damon_addr_range bregions[3])
 {
 	struct damon_region *r, *next;
 	unsigned int i = 0;
 
 	/* Remove regions which are not in the three big regions now */
-	damon_for_each_region_safe(r, next, t) {
+	damon_for_each_region_safe(r, next, t)
+	{
 		for (i = 0; i < 3; i++) {
 			if (damon_intersect(r, &bregions[i]))
 				break;
@@ -331,7 +335,8 @@ static void damon_va_apply_three_regions(struct damon_target *t,
 
 		br = &bregions[i];
 		/* Get the first and last regions which intersects with br */
-		damon_for_each_region(r, t) {
+		damon_for_each_region(r, t)
+		{
 			if (damon_intersect(r, br)) {
 				if (!first)
 					first = r;
@@ -343,15 +348,14 @@ static void damon_va_apply_three_regions(struct damon_target *t,
 		if (!first) {
 			/* no damon_region intersects with this big region */
 			newr = damon_new_region(
-					ALIGN_DOWN(br->start,
-						DAMON_MIN_REGION),
-					ALIGN(br->end, DAMON_MIN_REGION));
+				ALIGN_DOWN(br->start, DAMON_MIN_REGION),
+				ALIGN(br->end, DAMON_MIN_REGION));
 			if (!newr)
 				continue;
 			damon_insert_region(newr, damon_prev_region(r), r, t);
 		} else {
-			first->ar.start = ALIGN_DOWN(br->start,
-					DAMON_MIN_REGION);
+			first->ar.start =
+				ALIGN_DOWN(br->start, DAMON_MIN_REGION);
 			last->ar.end = ALIGN(br->end, DAMON_MIN_REGION);
 		}
 	}
@@ -365,7 +369,8 @@ void damon_va_update(struct damon_ctx *ctx)
 	struct damon_addr_range three_regions[3];
 	struct damon_target *t;
 
-	damon_for_each_target(t, ctx) {
+	damon_for_each_target(t, ctx)
+	{
 		if (damon_va_three_regions(t, three_regions))
 			continue;
 		damon_va_apply_three_regions(t, three_regions);
@@ -436,7 +441,7 @@ static void damon_pmdp_mkold(pmd_t *pmd, struct mm_struct *mm,
 
 #ifdef CONFIG_MMU_NOTIFIER
 	if (mmu_notifier_clear_young(mm, addr,
-				addr + ((1UL) << HPAGE_PMD_SHIFT)))
+				     addr + ((1UL) << HPAGE_PMD_SHIFT)))
 		referenced = true;
 #endif /* CONFIG_MMU_NOTIFIER */
 
@@ -449,7 +454,7 @@ static void damon_pmdp_mkold(pmd_t *pmd, struct mm_struct *mm,
 }
 
 static int damon_mkold_pmd_entry(pmd_t *pmd, unsigned long addr,
-		unsigned long next, struct mm_walk *walk)
+				 unsigned long next, struct mm_walk *walk)
 {
 	pte_t *pte;
 	spinlock_t *ptl;
@@ -491,7 +496,8 @@ static void damon_va_mkold(struct mm_struct *mm, unsigned long addr)
  */
 
 static void damon_va_prepare_access_check(struct damon_ctx *ctx,
-			struct mm_struct *mm, struct damon_region *r)
+					  struct mm_struct *mm,
+					  struct damon_region *r)
 {
 	r->sampling_addr = damon_rand(r->ar.start, r->ar.end);
 
@@ -504,7 +510,8 @@ void damon_va_prepare_access_checks(struct damon_ctx *ctx)
 	struct mm_struct *mm;
 	struct damon_region *r;
 
-	damon_for_each_target(t, ctx) {
+	damon_for_each_target(t, ctx)
+	{
 		mm = damon_get_mm(t);
 		if (!mm)
 			continue;
@@ -519,8 +526,9 @@ struct damon_young_walk_private {
 	bool young;
 };
 
+// 处理pmd
 static int damon_young_pmd_entry(pmd_t *pmd, unsigned long addr,
-		unsigned long next, struct mm_walk *walk)
+				 unsigned long next, struct mm_walk *walk)
 {
 	pte_t *pte;
 	spinlock_t *ptl;
@@ -528,8 +536,11 @@ static int damon_young_pmd_entry(pmd_t *pmd, unsigned long addr,
 	struct damon_young_walk_private *priv = walk->private;
 
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
+	// 查看当前pmd是否是huge page（包括HugeTLB大页和透明大页）
 	if (pmd_huge(*pmd)) {
+		// 锁定pmd
 		ptl = pmd_lock(walk->mm, pmd);
+		// 如果pmd不是huge page，则跳转到普通页的处理逻辑
 		if (!pmd_huge(*pmd)) {
 			spin_unlock(ptl);
 			goto regular_page;
@@ -538,22 +549,22 @@ static int damon_young_pmd_entry(pmd_t *pmd, unsigned long addr,
 		if (!page)
 			goto huge_out;
 		if (pmd_young(*pmd) || !page_is_idle(page) ||
-					mmu_notifier_test_young(walk->mm,
-						addr)) {
+		    mmu_notifier_test_young(walk->mm, addr)) {
+			// 2MB大页
 			*priv->page_sz = ((1UL) << HPAGE_PMD_SHIFT);
 			priv->young = true;
 		}
 		put_page(page);
-huge_out:
+	huge_out:
 		spin_unlock(ptl);
 		return 0;
 	}
-
+// 普通页的处理逻辑
 regular_page:
-#endif	/* CONFIG_TRANSPARENT_HUGEPAGE */
-
+#endif /* CONFIG_TRANSPARENT_HUGEPAGE */
 	if (pmd_none(*pmd) || unlikely(pmd_bad(*pmd)))
 		return -EINVAL;
+	// 获取pte
 	pte = pte_offset_map_lock(walk->mm, pmd, addr, &ptl);
 	if (!pte_present(*pte))
 		goto out;
@@ -561,7 +572,7 @@ regular_page:
 	if (!page)
 		goto out;
 	if (pte_young(*pte) || !page_is_idle(page) ||
-			mmu_notifier_test_young(walk->mm, addr)) {
+	    mmu_notifier_test_young(walk->mm, addr)) {
 		*priv->page_sz = PAGE_SIZE;
 		priv->young = true;
 	}
@@ -576,7 +587,7 @@ static struct mm_walk_ops damon_young_ops = {
 };
 
 static bool damon_va_young(struct mm_struct *mm, unsigned long addr,
-		unsigned long *page_sz)
+			   unsigned long *page_sz)
 {
 	struct damon_young_walk_private arg = {
 		.page_sz = page_sz,
@@ -595,8 +606,8 @@ static bool damon_va_young(struct mm_struct *mm, unsigned long addr,
  * mm	'mm_struct' for the given virtual address space
  * r	the region to be checked
  */
-static void damon_va_check_access(struct damon_ctx *ctx,
-			       struct mm_struct *mm, struct damon_region *r)
+static void damon_va_check_access(struct damon_ctx *ctx, struct mm_struct *mm,
+				  struct damon_region *r)
 {
 	static struct mm_struct *last_mm;
 	static unsigned long last_addr;
@@ -605,7 +616,7 @@ static void damon_va_check_access(struct damon_ctx *ctx,
 
 	/* If the region is in the last checked page, reuse the result */
 	if (mm == last_mm && (ALIGN_DOWN(last_addr, last_page_sz) ==
-				ALIGN_DOWN(r->sampling_addr, last_page_sz))) {
+			      ALIGN_DOWN(r->sampling_addr, last_page_sz))) {
 		if (last_accessed)
 			r->nr_accesses++;
 		return;
@@ -626,11 +637,13 @@ unsigned int damon_va_check_accesses(struct damon_ctx *ctx)
 	struct damon_region *r;
 	unsigned int max_nr_accesses = 0;
 
-	damon_for_each_target(t, ctx) {
+	damon_for_each_target(t, ctx)
+	{
 		mm = damon_get_mm(t);
 		if (!mm)
 			continue;
-		damon_for_each_region(r, t) {
+		damon_for_each_region(r, t)
+		{
 			damon_va_check_access(ctx, mm, r);
 			max_nr_accesses = max(r->nr_accesses, max_nr_accesses);
 		}

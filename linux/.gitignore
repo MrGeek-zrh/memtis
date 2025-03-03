@@ -161,3 +161,10 @@ x509.genkey
 
 # Documentation toolchain
 sphinx_*/
+
+.auto-coder/
+/actions/
+/output.txt
+
+*.data*
+*.png

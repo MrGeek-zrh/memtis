@@ -168,3 +168,6 @@ sphinx_*/
 
 *.data*
 *.png
+*.cmd
+*.o
+*.d

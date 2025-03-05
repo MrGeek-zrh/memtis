@@ -1,47 +1,47 @@
-# DAMON Data Transfer Mechanism
+# DAMON 数据传输机制
 
-DAMON (Data Access Monitoring) provides multiple ways to transfer sampled memory access data to user space and other kernel modules:
+DAMON（数据访问监控）提供了多种将采样内存访问数据传输到用户空间和其他内核模块的方法：
 
-## User Space Interaction (debugfs interface)
+## 用户空间交互（debugfs 接口）
 
-### debugfs File Nodes
-DAMON creates several debugfs file nodes in `dbgfs.c` for configuration and monitoring results:
+### debugfs 文件节点
+DAMON 在 `dbgfs.c` 中创建了若干 debugfs 文件节点，用于配置和监控结果：
 
-- `kdamond_pid`: Shows the PID of monitoring thread
-- `target_ids`: Displays list of monitored process IDs (PIDs) 
-- `attrs`: Shows sampling interval (`sample_interval`), aggregation interval (`aggr_interval`) etc.
+- `kdamond_pid`：显示监控线程的 PID
+- `target_ids`：显示被监控的进程 ID（PIDs）列表
+- `attrs`：显示采样间隔（`sample_interval`）、聚合间隔（`aggr_interval`）等信息
 
-Users can write configurations via `echo` and read results via `cat` commands.
+用户可以通过 `echo` 命令写入配置，通过 `cat` 命令读取结果。
 
 ### Tracepoints
-The `damon_aggregated` event (defined in `include/trace/events/damon.h`) is triggered when kernel aggregates data. Userspace tools like `perf` or `trace-cmd` can capture these events to get detailed information like region access counts.
+当内核聚合数据时，会触发 `damon_aggregated` 事件（在 `include/trace/events/damon.h` 中定义）。用户空间工具如 `perf` 或 `trace-cmd` 可以捕获这些事件，以获取详细信息，如区域访问计数。
 
-Example output format: `target_id=123 nr_regions=5 0x1000-0x2000: 42 accesses`
+示例输出格式：`target_id=123 nr_regions=5 0x1000-0x2000: 42 accesses`
 
-## Kernel Module Collaboration
+## 内核模块协作
 
-### Callback Mechanism
-The `struct damon_callback` allows registering hooks like `after_aggregation`. Other modules can register callbacks to receive notifications and process data after aggregation.
+### 回调机制
+`struct damon_callback` 允许注册像 `after_aggregation` 这样的钩子。其他模块可以注册回调，以在聚合后接收通知并处理数据。
 
-For example, a memory compaction module could trigger page migration when cold memory regions are detected.
+例如，内存压缩模块可以在检测到冷内存区域时触发页面迁移。
 
-### Direct API Calls
-DAMON provides `damon_target` and `damon_region` structures. Other modules can directly access monitoring data by traversing these structures.
+### 直接 API 调用
+DAMON 提供了 `damon_target` 和 `damon_region` 结构。其他模块可以通过遍历这些结构直接访问监控数据。
 
-For instance, the memory management subsystem could call `damon_for_each_region` to traverse regions and adjust page policies based on access frequency.
+例如，内存管理子系统可以调用 `damon_for_each_region` 来遍历区域，并根据访问频率调整页面策略。
 
-### mmu_notifier Integration
-In vaddr.c, DAMON uses `mmu_notifier` to monitor virtual address space changes (like `mmap` or `munmap`), ensuring monitored regions stay consistent with actual mappings, indirectly collaborating with other memory management modules.
+### mmu_notifier 集成
+在 `vaddr.c` 中，DAMON 使用 `mmu_notifier` 来监控虚拟地址空间的变化（如 `mmap` 或 `munmap`），确保被监控的区域与实际映射保持一致，间接与其他内存管理模块协作。
 
-## Data Flow Example
+## 数据流示例
 
-1. **Sampling Phase**: DAMON thread (`kdamond`) periodically clears PTE access flags (via `damon_va_mkold`) to simulate "not accessed" state.
-2. **Checking Phase**: On next sampling, it checks if PTE flags were set, counts accesses, and updates `nr_accesses` field.
-3. **Aggregation & Output**: When aggregation interval is reached, data is reported via tracepoint for userspace tools to capture; debugfs files are also updated for users to read latest aggregated results.
+1. **采样阶段**：DAMON 线程（`kdamond`）定期清除 PTE 访问标志（通过 `damon_va_mkold`）以模拟“未访问”状态。
+2. **检查阶段**：在下一个采样时，检查 PTE 标志是否被设置，计算访问次数，并更新 `nr_accesses` 字段。
+3. **聚合与输出**：当聚合间隔到达时，通过 tracepoint 报告数据，以便用户空间工具捕获；debugfs 文件也会更新，以便用户读取最新的聚合结果。
 
-## Configuration & Extensibility
+## 配置与扩展性
 
-- **Custom Callbacks**: Developers can extend `damon_callback` to implement custom data processing logic (e.g. forwarding data to Netlink sockets).
-- **Module Parameters**: `damon_set_attrs` allows dynamic adjustment of monitoring parameters to adapt to different scenarios (e.g. real-time analysis vs long-term trend statistics).
+- **自定义回调**：开发者可以扩展 `damon_callback` 以实现自定义数据处理逻辑（例如，将数据转发到 Netlink 套接字）。
+- **模块参数**：`damon_set_attrs` 允许动态调整监控参数，以适应不同场景（例如，实时分析与长期趋势统计）。
 
-In summary, DAMON provides flexible data access to userspace via debugfs and tracepoints, while enabling deep integration with memory management and other subsystems through callbacks and kernel APIs, forming an efficient data transfer mechanism.
+总之，DAMON 通过 debugfs 和 tracepoints 提供灵活的用户空间数据访问，同时通过回调和内核 API 实现与内存管理和其他子系统的深度集成，形成高效的数据传输机制。

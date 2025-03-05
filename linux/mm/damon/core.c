@@ -52,8 +52,9 @@ struct damon_region *damon_new_region(unsigned long start, unsigned long end)
  * Add a region between two other regions
  */
 inline void damon_insert_region(struct damon_region *r,
-		struct damon_region *prev, struct damon_region *next,
-		struct damon_target *t)
+				struct damon_region *prev,
+				struct damon_region *next,
+				struct damon_target *t)
 {
 	__list_add(&r->list, &prev->list, &next->list);
 	t->nr_regions++;
@@ -116,8 +117,7 @@ void damon_free_target(struct damon_target *t)
 {
 	struct damon_region *r, *next;
 
-	damon_for_each_region_safe(r, next, t)
-		damon_free_region(r);
+	damon_for_each_region_safe(r, next, t) damon_free_region(r);
 	kfree(t);
 }
 
@@ -166,8 +166,7 @@ static void damon_destroy_targets(struct damon_ctx *ctx)
 		return;
 	}
 
-	damon_for_each_target_safe(t, next_t, ctx)
-		damon_destroy_target(t);
+	damon_for_each_target_safe(t, next_t, ctx) damon_destroy_target(t);
 }
 
 void damon_destroy_ctx(struct damon_ctx *ctx)
@@ -186,8 +185,7 @@ void damon_destroy_ctx(struct damon_ctx *ctx)
  *
  * Return: 0 on success, negative error code otherwise.
  */
-int damon_set_targets(struct damon_ctx *ctx,
-		      unsigned long *ids, ssize_t nr_ids)
+int damon_set_targets(struct damon_ctx *ctx, unsigned long *ids, ssize_t nr_ids)
 {
 	ssize_t i;
 	struct damon_target *t, *next;
@@ -228,13 +226,12 @@ int damon_set_attrs(struct damon_ctx *ctx, unsigned long sample_int,
 		    unsigned long min_nr_reg, unsigned long max_nr_reg)
 {
 	if (min_nr_reg < 3) {
-		pr_err("min_nr_regions (%lu) must be at least 3\n",
-				min_nr_reg);
+		pr_err("min_nr_regions (%lu) must be at least 3\n", min_nr_reg);
 		return -EINVAL;
 	}
 	if (min_nr_reg > max_nr_reg) {
 		pr_err("invalid nr_regions.  min (%lu) > max (%lu)\n",
-				min_nr_reg, max_nr_reg);
+		       min_nr_reg, max_nr_reg);
 		return -EINVAL;
 	}
 
@@ -268,9 +265,9 @@ static unsigned long damon_region_sz_limit(struct damon_ctx *ctx)
 	struct damon_region *r;
 	unsigned long sz = 0;
 
-	damon_for_each_target(t, ctx) {
-		damon_for_each_region(r, t)
-			sz += r->ar.end - r->ar.start;
+	damon_for_each_target(t, ctx)
+	{
+		damon_for_each_region(r, t) sz += r->ar.end - r->ar.start;
 	}
 
 	if (ctx->min_nr_regions)
@@ -311,7 +308,7 @@ static int __damon_start(struct damon_ctx *ctx)
 		err = 0;
 		ctx->kdamond_stop = false;
 		ctx->kdamond = kthread_run(kdamond_fn, ctx, "kdamond.%d",
-				nr_running_ctxs);
+					   nr_running_ctxs);
 		if (IS_ERR(ctx->kdamond)) {
 			err = PTR_ERR(ctx->kdamond);
 			ctx->kdamond = 0;
@@ -419,13 +416,13 @@ int damon_stop(struct damon_ctx **ctxs, int nr_ctxs)
  * Return:	true if the time interval has passed, or false otherwise.
  */
 static bool damon_check_reset_time_interval(struct timespec64 *baseline,
-		unsigned long interval)
+					    unsigned long interval)
 {
 	struct timespec64 now;
 
 	ktime_get_coarse_ts64(&now);
 	if ((timespec64_to_ns(&now) - timespec64_to_ns(baseline)) <
-			interval * 1000)
+	    interval * 1000)
 		return false;
 	*baseline = now;
 	return true;
@@ -437,7 +434,7 @@ static bool damon_check_reset_time_interval(struct timespec64 *baseline,
 static bool kdamond_aggregate_interval_passed(struct damon_ctx *ctx)
 {
 	return damon_check_reset_time_interval(&ctx->last_aggregation,
-			ctx->aggr_interval);
+					       ctx->aggr_interval);
 }
 
 /*
@@ -447,10 +444,12 @@ static void kdamond_reset_aggregated(struct damon_ctx *c)
 {
 	struct damon_target *t;
 
-	damon_for_each_target(t, c) {
+	damon_for_each_target(t, c)
+	{
 		struct damon_region *r;
 
-		damon_for_each_region(r, t) {
+		damon_for_each_region(r, t)
+		{
 			trace_damon_aggregated(t, r, damon_nr_regions(t));
 			r->nr_accesses = 0;
 		}
@@ -463,12 +462,13 @@ static void kdamond_reset_aggregated(struct damon_ctx *c)
  * Merge two adjacent regions into one region
  */
 static void damon_merge_two_regions(struct damon_target *t,
-		struct damon_region *l, struct damon_region *r)
+				    struct damon_region *l,
+				    struct damon_region *r)
 {
 	unsigned long sz_l = sz_damon_region(l), sz_r = sz_damon_region(r);
 
-	l->nr_accesses = (l->nr_accesses * sz_l + r->nr_accesses * sz_r) /
-			(sz_l + sz_r);
+	l->nr_accesses =
+		(l->nr_accesses * sz_l + r->nr_accesses * sz_r) / (sz_l + sz_r);
 	l->ar.end = r->ar.end;
 	damon_destroy_region(r, t);
 }
@@ -487,7 +487,8 @@ static void damon_merge_regions_of(struct damon_target *t, unsigned int thres,
 {
 	struct damon_region *r, *prev = NULL, *next;
 
-	damon_for_each_region_safe(r, next, t) {
+	damon_for_each_region_safe(r, next, t)
+	{
 		if (prev && prev->ar.end == r->ar.start &&
 		    diff_of(prev->nr_accesses, r->nr_accesses) <= thres &&
 		    sz_damon_region(prev) + sz_damon_region(r) <= sz_limit)
@@ -523,9 +524,8 @@ static void kdamond_merge_regions(struct damon_ctx *c, unsigned int threshold,
  * r		the region to be split
  * sz_r		size of the first sub-region that will be made
  */
-static void damon_split_region_at(struct damon_ctx *ctx,
-		struct damon_target *t, struct damon_region *r,
-		unsigned long sz_r)
+static void damon_split_region_at(struct damon_ctx *ctx, struct damon_target *t,
+				  struct damon_region *r, unsigned long sz_r)
 {
 	struct damon_region *new;
 
@@ -540,23 +540,24 @@ static void damon_split_region_at(struct damon_ctx *ctx,
 
 /* Split every region in the given target into 'nr_subs' regions */
 static void damon_split_regions_of(struct damon_ctx *ctx,
-				     struct damon_target *t, int nr_subs)
+				   struct damon_target *t, int nr_subs)
 {
 	struct damon_region *r, *next;
 	unsigned long sz_region, sz_sub = 0;
 	int i;
 
-	damon_for_each_region_safe(r, next, t) {
+	damon_for_each_region_safe(r, next, t)
+	{
 		sz_region = r->ar.end - r->ar.start;
 
-		for (i = 0; i < nr_subs - 1 &&
-				sz_region > 2 * DAMON_MIN_REGION; i++) {
+		for (i = 0; i < nr_subs - 1 && sz_region > 2 * DAMON_MIN_REGION;
+		     i++) {
 			/*
 			 * Randomly select size of left sub-region to be at
 			 * least 10 percent and at most 90% of original region
 			 */
-			sz_sub = ALIGN_DOWN(damon_rand(1, 10) *
-					sz_region / 10, DAMON_MIN_REGION);
+			sz_sub = ALIGN_DOWN(damon_rand(1, 10) * sz_region / 10,
+					    DAMON_MIN_REGION);
 			/* Do not allow blank region */
 			if (sz_sub == 0 || sz_sub >= sz_region)
 				continue;
@@ -584,15 +585,14 @@ static void kdamond_split_regions(struct damon_ctx *ctx)
 	static unsigned int last_nr_regions;
 	int nr_subregions = 2;
 
-	damon_for_each_target(t, ctx)
-		nr_regions += damon_nr_regions(t);
+	damon_for_each_target(t, ctx) nr_regions += damon_nr_regions(t);
 
 	if (nr_regions > ctx->max_nr_regions / 2)
 		return;
 
 	/* Maybe the middle of the region has different access frequency */
 	if (last_nr_regions == nr_regions &&
-			nr_regions < ctx->max_nr_regions / 3)
+	    nr_regions < ctx->max_nr_regions / 3)
 		nr_subregions = 3;
 
 	damon_for_each_target(t, ctx)
@@ -609,7 +609,7 @@ static void kdamond_split_regions(struct damon_ctx *ctx)
 static bool kdamond_need_update_primitive(struct damon_ctx *ctx)
 {
 	return damon_check_reset_time_interval(&ctx->last_primitive_update,
-			ctx->primitive_update_interval);
+					       ctx->primitive_update_interval);
 }
 
 /*
@@ -634,7 +634,8 @@ static bool kdamond_need_stop(struct damon_ctx *ctx)
 	if (!ctx->primitive.target_valid)
 		return false;
 
-	damon_for_each_target(t, ctx) {
+	damon_for_each_target(t, ctx)
+	{
 		if (ctx->primitive.target_valid(t))
 			return false;
 	}
@@ -672,23 +673,24 @@ static int kdamond_fn(void *data)
 	sz_limit = damon_region_sz_limit(ctx);
 
 	while (!kdamond_need_stop(ctx)) {
+		// 在这里会将 pte的access位清空，以便下次根据access位确定访问情况
 		if (ctx->primitive.prepare_access_checks)
 			ctx->primitive.prepare_access_checks(ctx);
 		if (ctx->callback.after_sampling &&
-				ctx->callback.after_sampling(ctx))
+		    ctx->callback.after_sampling(ctx))
 			set_kdamond_stop(ctx);
 
+		// 等待采样周期
 		kdamond_usleep(ctx->sample_interval);
 
 		if (ctx->primitive.check_accesses)
 			max_nr_accesses = ctx->primitive.check_accesses(ctx);
 
 		if (kdamond_aggregate_interval_passed(ctx)) {
-			kdamond_merge_regions(ctx,
-					max_nr_accesses / 10,
-					sz_limit);
+			kdamond_merge_regions(ctx, max_nr_accesses / 10,
+					      sz_limit);
 			if (ctx->callback.after_aggregation &&
-					ctx->callback.after_aggregation(ctx))
+			    ctx->callback.after_aggregation(ctx))
 				set_kdamond_stop(ctx);
 			kdamond_reset_aggregated(ctx);
 			kdamond_split_regions(ctx);
@@ -702,13 +704,14 @@ static int kdamond_fn(void *data)
 			sz_limit = damon_region_sz_limit(ctx);
 		}
 	}
-	damon_for_each_target(t, ctx) {
+	damon_for_each_target(t, ctx)
+	{
 		damon_for_each_region_safe(r, next, t)
 			damon_destroy_region(r, t);
 	}
 
 	if (ctx->callback.before_terminate &&
-			ctx->callback.before_terminate(ctx))
+	    ctx->callback.before_terminate(ctx))
 		set_kdamond_stop(ctx);
 	if (ctx->primitive.cleanup)
 		ctx->primitive.cleanup(ctx);
